@@ -69,7 +69,18 @@ qa.ps1
 
 It also updates `composer.json` and `composer.lock`. Commit all generated files so contributors and CI use the same rules and dependency versions.
 
-Psalm is configured with [`psalm/plugin-symfony`](https://github.com/psalm/psalm-plugin-symfony) at error level 3. The plugin adds Symfony-specific type inference for services, parameters, console input, Messenger envelopes, Doctrine repositories, and other framework APIs.
+Psalm is configured with
+[`psalm/plugin-symfony`](https://github.com/psalm/psalm-plugin-symfony) at
+error level 3. It analyzes the selected source directory while excluding its
+`Entity/` directory and `Kernel.php`. The generated configuration enables
+unused-code checks and a project-local cache, and leaves `#[Override]`
+ownership to the formatter and Rector so the tools do not fight over the same
+source changes.
+
+The generated Rector configuration also keeps the original exception as
+`previous` without copying arbitrary exception codes into wrapper exceptions.
+Add project-specific Psalm suppressions or extension stubs directly to
+`psalm.xml` after installation.
 
 ### Installer options
 

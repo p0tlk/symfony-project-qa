@@ -126,7 +126,7 @@ try {
         Invoke-QaTool 'PHPCS check' 'phpcs' @('--no-colors', "--standard=$qa\phpcs.xml", '--no-cache', $Target)
         Invoke-QaTool 'Rector check' 'rector' @('process', '--dry-run', '--no-ansi', "--config=$qa\rector.php")
         Invoke-QaTool 'PHPStan' 'phpstan' @('analyse', $Target, '--no-ansi', '--no-progress', '--memory-limit=1G')
-        Invoke-QaTool 'Psalm with Symfony plugin' 'psalm' @('--config=psalm.xml', '--no-cache', '--no-progress')
+        Invoke-QaTool 'Psalm with Symfony plugin' 'psalm' @('--config=psalm.xml', '--no-progress', $Target)
 
         if ($WithTests) {
             $phpunit = Join-Path $root 'bin\phpunit'
@@ -213,8 +213,9 @@ $rector = @'
 <?php
 declare(strict_types=1);
 
-use Rector\Config\RectorConfig;
+use Rector\CodeQuality\Rector\Catch_\ThrowWithPreviousExceptionRector;
 use Rector\CodeQuality\Rector\Identical\FlipTypeControlToUseExclusiveTypeRector;
+use Rector\Config\RectorConfig;
 use Rector\Symfony\CodeQuality\Rector\Class_\ControllerMethodInjectionToConstructorRector;
 
 $root = getcwd() ?: throw new RuntimeException('Unable to resolve the project directory.');
@@ -226,6 +227,7 @@ return RectorConfig::configure()
     ->withSkip([
         ControllerMethodInjectionToConstructorRector::class,
         FlipTypeControlToUseExclusiveTypeRector::class,
+        ThrowWithPreviousExceptionRector::class,
     ])
     ->withComposerBased(twig: true, doctrine: true, phpunit: true, symfony: true)
     ->withPreparedSets(
@@ -330,21 +332,25 @@ $psalmTarget = [System.Security.SecurityElement]::Escape(($Target -replace '\\',
 $psalm = @'
 <?xml version="1.0"?>
 <psalm
-    xmlns="https://getpsalm.org/schema/config"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    cacheDirectory="var/cache/psalm"
+    ensureOverrideAttribute="false"
     errorLevel="3"
-    findUnusedCode="false"
     resolveFromConfigFile="true"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    findUnusedBaselineEntry="true"
+    findUnusedCode="true"
 >
     <projectFiles>
-        <directory name="__QA_TARGET_XML__"/>
+        <directory name="__QA_TARGET_XML__" />
         <ignoreFiles>
-            <directory name="vendor"/>
+            <directory name="__QA_TARGET_XML__/Entity" />
+            <file name="__QA_TARGET_XML__/Kernel.php" />
         </ignoreFiles>
     </projectFiles>
     <plugins>
-        <pluginClass class="Psalm\SymfonyPsalmPlugin\Plugin"/>
+        <pluginClass class="Psalm\SymfonyPsalmPlugin\Plugin" />
     </plugins>
 </psalm>
 '@
