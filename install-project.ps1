@@ -50,6 +50,12 @@ if (-not $NoInstall) {
         throw "PHP 8.4 or newer is required; found PHP $phpVersionText."
     }
 
+    $phpModules = @(& $php.Source -m)
+    $missingPhpModules = @('mbstring', 'dom', 'SimpleXML') | Where-Object { $phpModules -notcontains $_ }
+    if ($missingPhpModules.Count -gt 0) {
+        throw "Psalm requires these missing PHP extension(s): $($missingPhpModules -join ', '). Enable them for the CLI PHP installation, then run this installer again."
+    }
+
     if ($null -eq (Get-Command aspell -ErrorAction SilentlyContinue)) {
         throw 'GNU Aspell is required by Peck but is not available on PATH. Install Aspell and its English dictionary, then run this installer again.'
     }
@@ -120,6 +126,7 @@ try {
         Invoke-QaTool 'PHPCS check' 'phpcs' @('--no-colors', "--standard=$qa\phpcs.xml", '--no-cache', $Target)
         Invoke-QaTool 'Rector check' 'rector' @('process', '--dry-run', '--no-ansi', "--config=$qa\rector.php")
         Invoke-QaTool 'PHPStan' 'phpstan' @('analyse', $Target, '--no-ansi', '--no-progress', '--memory-limit=1G')
+        Invoke-QaTool 'Psalm with Symfony plugin' 'psalm' @('--config=psalm.xml', '--no-cache', '--no-progress')
 
         if ($WithTests) {
             $phpunit = Join-Path $root 'bin\phpunit'
@@ -308,7 +315,7 @@ $peck = @'
             "ecs", "endpoint", "enum", "env", "filesystem", "frontend", "hostname",
             "http", "https", "idempotency", "json", "jwks", "jwt", "keycloak",
             "middleware", "mq", "namespace", "nullable", "oauth", "oa", "php",
-            "phpcbf", "phpcs", "phpdoc", "phpstan", "phpunit", "readonly", "rector",
+            "phpcbf", "phpcs", "phpdoc", "phpstan", "phpunit", "psalm", "readonly", "rector",
             "repo", "requeue", "serializer", "schemas", "slevomat", "symfony", "timestamp",
             "trait", "twig", "uri", "uuid", "validator", "webhook", "workflow", "wsp",
             "yaml"
@@ -319,6 +326,31 @@ $peck = @'
 '@
 Write-Utf8File -Path (Join-Path $projectRoot 'peck.json') -Value $peck
 
+$psalmTarget = [System.Security.SecurityElement]::Escape(($Target -replace '\\', '/'))
+$psalm = @'
+<?xml version="1.0"?>
+<psalm
+    xmlns="https://getpsalm.org/schema/config"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    errorLevel="3"
+    findUnusedCode="false"
+    resolveFromConfigFile="true"
+>
+    <projectFiles>
+        <directory name="__QA_TARGET_XML__"/>
+        <ignoreFiles>
+            <directory name="vendor"/>
+        </ignoreFiles>
+    </projectFiles>
+    <plugins>
+        <pluginClass class="Psalm\SymfonyPsalmPlugin\Plugin"/>
+    </plugins>
+</psalm>
+'@
+$psalm = $psalm.Replace('__QA_TARGET_XML__', $psalmTarget)
+Write-Utf8File -Path (Join-Path $projectRoot 'psalm.xml') -Value $psalm
+
 if (-not $NoInstall) {
     Write-Host 'Installing project-local QA dependencies...' -ForegroundColor Cyan
     & $composer.Source config --no-interaction allow-plugins.dealerdirect/phpcodesniffer-composer-installer true
@@ -328,7 +360,8 @@ if (-not $NoInstall) {
 
     & $composer.Source require --dev --no-interaction --no-progress --with-all-dependencies `
         rector/rector phpstan/phpstan squizlabs/php_codesniffer friendsofphp/php-cs-fixer `
-        slevomat/coding-standard dealerdirect/phpcodesniffer-composer-installer peckphp/peck
+        slevomat/coding-standard dealerdirect/phpcodesniffer-composer-installer peckphp/peck `
+        vimeo/psalm psalm/plugin-symfony
     if ($LASTEXITCODE -ne 0) {
         throw "Composer failed with exit code $LASTEXITCODE. Generated files were kept."
     }

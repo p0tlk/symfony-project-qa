@@ -12,6 +12,7 @@ A project-local quality toolkit for Symfony applications. One PowerShell command
 | PHPCS | PSR-12 and application rules |
 | Slevomat Coding Standard | Strict types, type hints, and import checks |
 | PHPStan | Static analysis |
+| Psalm + Symfony plugin | Symfony-aware static analysis |
 | Peck | Spelling checks for source code |
 | PHPUnit | Optional project test run |
 
@@ -19,11 +20,14 @@ A project-local quality toolkit for Symfony applications. One PowerShell command
 
 - Windows PowerShell 5.1+ or PowerShell 7+
 - PHP 8.4 or newer available as `php`
+- PHP extensions: `mbstring`, `dom`, and `SimpleXML`
 - Composer 2 available as `composer`
 - GNU Aspell and an English dictionary available as `aspell`
 - An existing Composer project containing `src/`, or another source folder selected with `-Target`
 
 The generated PHP-CS-Fixer configuration enables `@PHP8x4Migration`, so PHP 8.4 is the minimum supported version.
+
+Psalm requires `mbstring`; its XML configuration also uses DOM and SimpleXML. Confirm the CLI installation with `php -m` if installation reports a missing extension.
 
 ### Install Aspell
 
@@ -59,10 +63,13 @@ The installer creates:
 |-- phpcs.xml
 `-- rector.php
 peck.json
+psalm.xml
 qa.ps1
 ```
 
 It also updates `composer.json` and `composer.lock`. Commit all generated files so contributors and CI use the same rules and dependency versions.
+
+Psalm is configured with [`psalm/plugin-symfony`](https://github.com/psalm/psalm-plugin-symfony) at error level 3. The plugin adds Symfony-specific type inference for services, parameters, console input, Messenger envelopes, Doctrine repositories, and other framework APIs.
 
 ### Installer options
 
