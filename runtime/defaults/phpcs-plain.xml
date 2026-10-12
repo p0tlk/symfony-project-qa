@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<ruleset name="Plain PHP">
+    <description>Shared PHP checks, allowing standalone classes without namespaces.</description>
+    <rule ref="./phpcs.xml">
+        <exclude name="PSR1.Classes.ClassDeclaration.MissingNamespace"/>
+    </rule>
+</ruleset>

@@ -1,0 +1,17 @@
+{
+    "preset": "base",
+    "ignore": {
+        "words": [
+            "api", "amq", "auth", "authenticator", "backend", "cache", "charset",
+            "cli", "config", "csrf", "datetime", "deprecation", "doctrine", "dto",
+            "ecs", "endpoint", "enum", "env", "filesystem", "frontend", "hostname",
+            "http", "https", "idempotency", "json", "jwks", "jwt", "keycloak",
+            "middleware", "mq", "namespace", "nullable", "oauth", "oa", "php",
+            "phpcbf", "phpcs", "phpdoc", "phpstan", "phpunit", "psalm", "readonly", "rector",
+            "repo", "requeue", "serializer", "schemas", "slevomat", "symfony", "timestamp",
+            "trait", "twig", "uri", "uuid", "validator", "webhook", "workflow", "wsp",
+            "yaml"
+        ],
+        "paths": ["vendor", "node_modules", "tests", "var"]
+    }
+}

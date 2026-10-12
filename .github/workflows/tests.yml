@@ -1,0 +1,38 @@
+name: QA toolkit tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, dom, SimpleXML, xml, xmlwriter
+          tools: composer:v2
+          coverage: none
+      - name: Install spelling dictionary
+        run: sudo apt-get update && sudo apt-get install -y aspell aspell-en
+      - name: Install QA dependencies
+        run: composer install --working-dir=tools --no-interaction --no-progress --prefer-dist
+      - name: Check PHP syntax
+        run: find runtime tests -name '*.php' -not -path 'tests/work/*' -exec php -l {} \;
+      - name: Integration checks
+        shell: pwsh
+        run: ./tests/integration.ps1
+      - name: Formatter convergence
+        run: php tests/check-compatibility.php ci
+      - name: Retain diagnostic reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-test-reports
+          path: |
+            tests/results/
+            tests/work/*/*/var/qa/
+            tests/work/*/*/output/report/
+            tests/work/*/*/qa-test-output.txt

@@ -1,0 +1,29 @@
+{
+    "name": "p0tlk/symfony-project-qa-tools",
+    "description": "Isolated QA dependencies for Symfony, Composer and plain PHP projects",
+    "type": "project",
+    "require": {
+        "php": ">=8.4",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.2",
+        "friendsofphp/php-cs-fixer": "^3.95",
+        "nette/neon": "^3.4",
+        "peckphp/peck": "^0.3",
+        "phpstan/phpstan": "^2.3",
+        "phpunit/phpunit": "^10.5",
+        "psalm/plugin-symfony": "^5.3",
+        "rector/rector": "^2.7",
+        "shipmonk/composer-dependency-analyser": "^1.8",
+        "shipmonk/dead-code-detector": "^1.4",
+        "shipmonk/phpstan-baseline-per-identifier": "^2.4",
+        "shipmonk/phpstan-rules": "^4.4",
+        "slevomat/coding-standard": "^8.22",
+        "squizlabs/php_codesniffer": "^3.13",
+        "vimeo/psalm": "^6.19"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}

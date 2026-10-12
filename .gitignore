@@ -1,0 +1,5 @@
+/tools/vendor/
+/tools/composer.lock
+/var/
+/tests/work/
+/tests/results/

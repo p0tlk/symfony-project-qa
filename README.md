@@ -1,157 +1,196 @@
 # Symfony Project QA
 
-A project-local quality toolkit for Symfony applications. One PowerShell command installs the development dependencies and generates a shared QA configuration for local development and CI.
+Run a complete QA suite from the root of a Symfony, Composer, or plain PHP project. The runner streams each tool's output, continues after failures, and saves an offline HTML report plus JSON, Markdown, logs, PHPStan baselines by identifier, and PHPUnit JUnit results.
+
+```powershell
+qa                       # Check and report; default mode does not change source
+qa full                  # Apply fixes, then check
+qa-php                   # Explicit plain PHP mode, no application Composer needed
+```
+
+Folders without `composer.json` automatically use plain PHP mode with either command. A framework-free Composer project uses normal Composer mode.
 
 ## Included checks
 
 | Tool | Purpose |
 | --- | --- |
-| Rector | Automated refactoring and modernization |
-| PHP-CS-Fixer | Symfony and PHP 8.4 formatting |
-| PHPCBF | Automatic PHPCS violation fixes |
-| PHPCS | PSR-12 and application rules |
-| Slevomat Coding Standard | Strict types, type hints, and import checks |
-| PHPStan | Static analysis |
-| Psalm + Symfony plugin | Symfony-aware static analysis |
-| Peck | Spelling checks for source code |
-| PHPUnit | Optional project test run |
+| Rector | Refactoring and PHP 8.4 modernization |
+| PHP CS Fixer | Shared formatting rules |
+| PHPCS / PHPCBF + Slevomat | Coding standards, type hints, and automatic fixes |
+| PHPStan | Level 8 by default, or the project's configured level |
+| [ShipMonk PHPStan rules](https://github.com/shipmonk-rnd/phpstan-rules) | Additional strict checks |
+| [ShipMonk dead-code detector](https://github.com/shipmonk-rnd/dead-code-detector) | Unused methods, properties, constants, and enum cases |
+| [Composer dependency analyser](https://github.com/shipmonk-rnd/composer-dependency-analyser) | Unused, shadow, and misplaced Composer dependencies |
+| [Baseline per identifier](https://github.com/shipmonk-rnd/phpstan-baseline-per-identifier) | Exported PHPStan findings grouped by identifier |
+| Psalm | Static analysis, with its Symfony plugin when the project requires FrameworkBundle |
+| PHPUnit | Tests when configured, with JUnit output |
+| Peck / Aspell | Identifier, filename, and documentation spelling checks |
 
 ## Requirements
 
-- Windows PowerShell 5.1+ or PowerShell 7+
-- PHP 8.4 or newer available as `php`
-- PHP extensions: `mbstring`, `dom`, and `SimpleXML`
-- Composer 2 available as `composer`
-- GNU Aspell and an English dictionary available as `aspell`
-- An existing Composer project containing `src/`, or another source folder selected with `-Target`
+- Windows PowerShell 5.1+ or PowerShell 7+ for installation.
+- PHP 8.4+ on PATH. Default migration and formatting rules target PHP 8.4.
+- CLI extensions `mbstring`, `dom`, `SimpleXML`, `xml`, and `xmlwriter`.
+- Composer 2 for installing the QA tools.
+- GNU Aspell with an English dictionary for spelling checks.
 
-The generated PHP-CS-Fixer configuration enables `@PHP8x4Migration`, so PHP 8.4 is the minimum supported version.
+Plain PHP applications do not need their own Composer manifest or autoloader. Composer is used once to install the QA tools, separately from application source. Run with `--skip-peck` when spelling is handled elsewhere; `-NoInstall` generates installation files without checking or installing prerequisites.
 
-Psalm requires `mbstring`; its XML configuration also uses DOM and SimpleXML. Confirm the CLI installation with `php -m` if installation reports a missing extension.
+Install Aspell with `scoop install main/aspell` on Windows, `sudo apt-get install aspell aspell-en` on Debian/Ubuntu, or `brew install aspell` on macOS.
 
-### Install Aspell
+## Global installation: `qa` on PATH
 
-Peck is installed through Composer but delegates dictionary lookups to GNU Aspell, which is a native system program.
-
-```powershell
-# Windows with Scoop
-scoop install main/aspell
-```
-
-```bash
-# Debian, Ubuntu, or WSL
-sudo apt-get update
-sudo apt-get install -y aspell aspell-en
-
-# macOS with Homebrew
-brew install aspell
-```
-
-## Installation
-
-Download `install-project.ps1` into the root of a Symfony project, then run:
+Clone or download the **entire repository**, then run:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-project.ps1
+.\install-global.ps1
 ```
 
-The installer creates:
+The default Windows destination is `%LOCALAPPDATA%\SymfonyProjectQa`. Dependencies live in its `tools/` directory. Its `bin/` directory is added to your user PATH; open a new terminal, enter a project root, and run `qa` or `qa-php`. Nothing is hardcoded to the author's machine.
+
+```powershell
+.\install-global.ps1 -Destination C:\Tools\php-qa
+.\install-global.ps1 -Force              # Update an existing installation
+.\install-global.ps1 -NoInstall -NoPath # Generate files only; keep PATH unchanged
+```
+
+On Linux/macOS, run the installer with PowerShell 7 and add the printed `bin/` directory to your shell's PATH. Generated shell launchers use the same PHP runner.
+
+## Project-local installation
+
+Keep the downloaded QA repository outside your application. From the **application root**, invoke its installer:
+
+```powershell
+& C:\path\to\symfony-project-qa\install-project.ps1
+```
+
+For a Composer project, this installs the tools as development dependencies and updates `composer.json` and `composer.lock`. It detects `src/` or `app/`; select another source directory with `-Target`.
+
+For an application without `composer.json`, it selects the current folder and installs isolated QA dependencies in `.qa/tools/`. It creates no application Composer manifest or `vendor/autoload.php`. `-Plain` explicitly selects this setup even when an application has a Composer manifest.
+
+```powershell
+& C:\path\to\symfony-project-qa\install-project.ps1 -Target classes
+& C:\path\to\symfony-project-qa\install-project.ps1 -Plain
+& C:\path\to\symfony-project-qa\install-project.ps1 -NoInstall
+& C:\path\to\symfony-project-qa\install-project.ps1 -Force
+```
+
+Generated files:
 
 ```text
 .qa/
-|-- php-cs-fixer.php
-|-- phpcs.xml
-`-- rector.php
-peck.json
-psalm.xml
-qa.ps1
+  settings.json           # Default target and plain-mode preference
+  php-cs-fixer.php         # Editable wrappers around shared defaults
+  phpcs.xml
+  rector.php
+  runtime/                # Runner, report renderer, configs, spelling helpers
+  tools/                  # Plain mode only: tool Composer manifest/lock/vendor
+peck.json                 # Created only when it does not already exist
+qa, qa.bat, qa.ps1
+qa-php, qa-php.bat, qa-php.ps1
 ```
 
-It also updates `composer.json` and `composer.lock`. Commit all generated files so contributors and CI use the same rules and dependency versions.
+Run `./qa` on Unix, or `.\qa.bat` / `.\qa.ps1` on Windows. PowerShell requires `.\` for a command in the current folder; the global installation provides the bare `qa` command. Existing root tool configurations and dictionaries are preserved. `-Force` refreshes the generated runtime, launchers, settings, and `.qa` config wrappers; review custom changes to those files before an upgrade. Old project `psalm.xml` and PHPStan configs remain active.
 
-Psalm is configured with
-[`psalm/plugin-symfony`](https://github.com/psalm/psalm-plugin-symfony) at
-error level 3. It analyzes the selected source directory while excluding its
-`Entity/` directory and `Kernel.php`. The generated configuration enables
-unused-code checks and a project-local cache, and leaves `#[Override]`
-ownership to the formatter and Rector so the tools do not fight over the same
-source changes.
+Commit the generated runtime, configuration, Composer manifests and lockfiles. Ignore `.qa/tools/vendor/` and `var/qa/`. For plain projects, contributors and CI install the tools with `composer install --working-dir=.qa/tools`. For Composer projects, use `composer install` after the initial QA dependency installation. After `-NoInstall` in a Composer project, rerun the installer with `-Force` to add the QA development dependencies.
 
-The generated Rector configuration also keeps the original exception as
-`previous` without copying arbitrary exception codes into wrapper exceptions.
-Add project-specific Psalm suppressions or extension stubs directly to
-`psalm.xml` after installation.
-
-### Installer options
+## Commands and CLI output
 
 ```powershell
-# Analyze app/ instead of src/
-.\install-project.ps1 -Target app
-
-# Generate configuration without changing Composer dependencies
-.\install-project.ps1 -NoInstall
-
-# Replace existing generated QA files
-.\install-project.ps1 -Force
+qa check                     # Default: all checks, then reports
+qa fix                       # Rector, PHPCBF, PHP CS Fixer changes
+qa full                      # Fix, then run all checks
+qa-php full                  # The same sequence for standalone PHP
+qa --target=classes
+qa --report-dir=build/qa
+qa --with-tests              # Require tests even without an auto-detected config
+qa --skip-tests
+qa --skip-peck
+qa --timeout=900             # Per-tool timeout; 0 disables it
+qa --help
 ```
 
-## Usage
+The old `-Target`, `-WithTests`, `-SkipTests`, `-SkipPeck`, `-ReportDir`, `-Timeout`, and `-Mode` spellings also work. All modes default to `check`, including `qa.ps1`; specify `full` to retain the original runner's fix-first behavior.
 
-```powershell
-# Run every fixer, then every check
-.\qa.ps1 full
+Example excerpt from a standalone project with configured PHPUnit tests:
 
-# Apply only automated fixes
-.\qa.ps1 fix
+```text
+QA full: C:/Projects/calculator
+Project type: plain PHP (4 source files)
 
-# Check without modifying source files
-.\qa.ps1 check
+==> PHPStan and ShipMonk rules and dead code
+ [OK] No errors
+PASSED (exit 0, ...s)
 
-# Include the project's bin/phpunit test runner
-.\qa.ps1 check -WithTests
+==> ShipMonk Composer dependency analyser
+SKIPPED: Not applicable in plain PHP mode: no Composer dependencies to analyse.
 
-# Run checks without the Peck/Aspell spelling check
-.\qa.ps1 check -SkipPeck
+==> PHPUnit
+OK (1 test, 1 assertion)
+PASSED (exit 0, ...s)
+
+QA PASSED: 12 passed, 0 failed, 1 skipped.
+Open report: C:/Projects/calculator/var/qa/report.html
 ```
 
-`full` and `fix` can change source files. Review the resulting diff before committing.
+Each failed check is printed with its exit code and diagnostics. Later tools still run. The final process exit is `0` for passed, `1` for failed checks, and `2` for invalid arguments or missing project prerequisites. PHPCBF exit `1` means all fixable errors were fixed; exit `2` remains a failure.
 
-## PhpStorm External Tools
+## Reports
 
-Add the QA commands to **Settings | Tools | External Tools**. Create a new tool with these common values:
+Every run writes to `var/qa/` unless overridden:
 
-| Field | Windows PowerShell | PowerShell 7 |
-| --- | --- | --- |
-| Program | `powershell.exe` | `pwsh` |
-| Working directory | `$ProjectFileDir$` | `$ProjectFileDir$` |
-| Synchronize files after execution | Enabled | Enabled |
-| Open console for tool output | Enabled | Enabled |
+- `report.html`: offline report with summary, durations, commands, expandable output, and artifact links.
+- `report.json`: machine-readable check results and exit codes.
+- `summary.md`: Markdown summary.
+- Individual tool `.log` files.
+- `baselines/_loader.neon` and per-identifier baseline files when PHPStan completes.
+- `phpunit.xml`: JUnit results when PHPUnit runs.
 
-Use one of the following argument sets for each tool:
+Exported baselines are reports, and are **never applied automatically** to analysis. Existing project baselines remain active. A baseline export can succeed while PHPStan fails; the overall run still fails. Reports escape tool output and can be opened directly without a web server.
 
-| Tool name | Arguments |
+## Project configuration and plain PHP
+
+| Tool | Configuration searched in order |
 | --- | --- |
-| Symfony QA: Check | `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" check` |
-| Symfony QA: Fix | `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" fix` |
-| Symfony QA: Full | `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" full` |
-| Symfony QA: Check + tests | `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" check -WithTests` |
-| Symfony QA: Check without Peck | `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" check -SkipPeck` |
+| PHP CS Fixer | `.qa/php-cs-fixer.php`, `.php-cs-fixer.php`, `.php-cs-fixer.dist.php` |
+| PHPCS | `.qa/phpcs.xml`, `.phpcs.xml`, `.phpcs.xml.dist`, `phpcs.xml`, `phpcs.xml.dist` |
+| Rector | `.qa/rector.php`, `rector.php`, `rector.php.dist` |
+| PHPStan | `phpstan.neon`, `phpstan.neon.dist`, `phpstan.dist.neon` |
+| Psalm | `psalm.xml`, `psalm.xml.dist`, `.qa/psalm.xml` |
+| Peck | `peck.json`, `.qa/peck.json` |
+| Dependency analyser | `composer-dependency-analyser.php`, loaded by the tool |
 
-After saving, run a command from **Tools | External Tools**. You can also assign shortcuts under **Settings | Keymap | External Tools**.
+Global installations use shared defaults only when project configurations are absent. Project installation generates `.qa` wrappers that take precedence; edit or remove those wrappers to select an existing root Rector, PHPCS, or PHP CS Fixer configuration. The runner builds effective PHPStan and default Psalm configs inside the report directory, leaving source configs untouched. PHPStan extensions already registered by project configuration or extension-installer are reused.
 
-If PhpStorm uses a different PHP interpreter from the terminal, configure the desired CLI executable in **Settings | PHP** and ensure the same PHP version is available to the external tool environment.
+PHPStan analyses the source target, Composer autoload/development paths, and `tests/`. Symfony dead-code detection reads existing `var/cache/*/*Container.xml` dumps without warming the application cache. If service construction is reported unused, generate the application's normal development cache or configure `shipmonkDeadCode.usageProviders.symfony.containerXmlPaths`. Custom magic calls can require a [custom usage provider](https://github.com/shipmonk-rnd/dead-code-detector#customization).
 
-## Continuous integration
+Plain mode selects explicit PHP files, including root entry scripts. It excludes dependencies, generated/cache directories, symlinks, QA configs, and current/previous report folders. Generic Rector rules replace Composer/framework sets, and the default PHPCS standard allows classes without namespaces. Peck parses source without executing the application. Dependency analysis is skipped. PHPUnit runs when `phpunit.xml`, `phpunit.xml.dist`, or `bin/phpunit` is present, using the project binary when available and the QA tools' PHPUnit otherwise. PHP CS Fixer may print an informational warning about the missing Composer PHP requirement; this does not fail checks.
 
-On a Windows runner:
+Set `QA_TOOLS_HOME` to a tools installation containing `vendor/`, or `QA_TOOLS_VENDOR` to an explicit vendor directory. These are optional; the runner discovers project and installed tool dependencies automatically. `QA_PHP` selects a PHP executable. Project custom Composer `vendor-dir` settings are supported.
+
+## Formatter compatibility and verification
+
+The shared defaults were exercised against a 16-file PHP syntax corpus. Rector, PHPCBF, and PHP CS Fixer converge after the initial fixes; subsequent passes produce no changes and all three checks pass. This guarantee covers the bundled defaults. Custom project rules can introduce conflicts, so rerun the test after modifying them.
 
 ```powershell
-composer install --no-interaction --prefer-dist
-.\qa.ps1 check
+composer install --working-dir=tools
+.\tests\integration.ps1
+php .\tests\check-compatibility.php
 ```
 
-Install Aspell on the runner before executing the QA command, or use `-SkipPeck` when spelling checks are handled separately.
+Set `QA_TOOLS_HOME` when testing with another installation, or pass `-ToolsHome` to the integration script. Test fixtures and logs are retained in ignored `tests/work/` and `tests/results/` directories. Integration checks cover both project types, paths with spaces, configured tests, generated output exclusions, source preservation, deliberate failures, per-identifier baselines, and continued reporting after errors.
 
-## Peck dictionary
+On Windows the installers call Composer's sibling `composer.phar` directly to preserve version constraints through native arguments. Set `QA_COMPOSER_PHAR` if using a custom Composer batch launcher without that sibling file; the formatter test also accepts this path.
 
-The generated root `peck.json` ignores common PHP and Symfony vocabulary, acronyms, tool names, and generated/dependency directories. Peck expects its configuration in the project root. Add project-specific domain language to `ignore.words` after installation rather than weakening the other checks.
+## CI and PhpStorm
+
+For a project-local installation on Windows:
+
+```powershell
+composer install              # Or: composer install --working-dir=.qa/tools
+.\qa.bat check
+```
+
+On Linux/macOS use `./qa check`, or `php .qa/runtime/qa.php check`. Install Aspell first or pass `--skip-peck`. Archive `var/qa/` as CI artifacts even when the command fails.
+
+For PhpStorm External Tools, use `powershell.exe` or `pwsh` with `-NoProfile -ExecutionPolicy Bypass -File "$ProjectFileDir$\qa.ps1" check`, working directory `$ProjectFileDir$`, console output enabled, and file synchronization enabled. Substitute `fix` or `full` for the other actions. Use the same PHP interpreter as the terminal.
